@@ -68,7 +68,8 @@ const sendWelcomeEmail = async (email, name) => {
           </div>
           <div style="padding: 24px; background-color: #ffffff;">
             <h2 style="color: #4A148C; margin-top: 0;">Welcome, ${name}!</h2>
-            <p>Thank you for registering on <strong>GST Saheli</strong>, the gamified learning platform created specifically to empower women entrepreneurs to master GST filing, invoicing, and tax concepts.</p>
+            <p><strong>Thank you for registering. Begin your learning!</strong></p>
+            <p>GST Saheli is the gamified learning platform created specifically to empower women entrepreneurs to master GST filing, invoicing, and tax concepts.</p>
             <p>Here are your account details for getting started:</p>
             <ul style="padding-left: 20px;">
               <li><strong>Registered Email:</strong> ${email}</li>
@@ -217,8 +218,60 @@ const sendReportEmail = async (email, name, progressDetails) => {
   }
 };
 
+/**
+ * Sends a login notification email with timestamp
+ */
+const sendLoginNotificationEmail = async (email, name, timestamp) => {
+  const payload = {
+    sender: {
+      name: process.env.SENDER_NAME || 'GST Saheli Team',
+      email: process.env.SENDER_EMAIL || 'no-reply@gstsaheli.com'
+    },
+    to: [
+      {
+        email: email,
+        name: name
+      }
+    ],
+    subject: 'New Login Detected on GST Saheli 🔐',
+    htmlContent: `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 12px;">
+          <div style="background: linear-gradient(135deg, #8E24AA 0%, #D81B60 100%); padding: 24px; border-radius: 8px 8px 0 0; text-align: center;">
+            <h1 style="color: #fff; margin: 0; font-size: 28px; font-weight: bold; letter-spacing: 1px;">GST Saheli Security</h1>
+          </div>
+          <div style="padding: 24px; background-color: #ffffff;">
+            <h2 style="color: #4A148C; margin-top: 0;">Hi ${name},</h2>
+            <p>We detected a new login to your <strong>GST Saheli</strong> account on:</p>
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 14px; margin: 15px 0; border-left: 4px solid #8E24AA;">
+              <strong>Time:</strong> ${timestamp}<br>
+              <strong>Status:</strong> Success
+            </div>
+            <p>If this was you, you can safely disregard this email. Happy learning!</p>
+            <p>If you did not authorize this login, please contact our support immediately.</p>
+            <p>Best regards,<br><strong>The GST Saheli Team</strong></p>
+          </div>
+          <div style="background: #f9f9f9; padding: 12px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #777;">
+            &copy; ${new Date().getFullYear()} GST Saheli. All rights reserved.
+          </div>
+        </body>
+      </html>
+    `
+  };
+
+  try {
+    const res = await sendBrevoEmail(payload);
+    console.log(`Login notification email successfully sent to ${email}. Message ID:`, res.messageId);
+    return { success: true, response: res };
+  } catch (error) {
+    console.error(`Error sending login notification email to ${email}:`, error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   sendWelcomeEmail,
   sendPasswordResetEmail,
-  sendReportEmail
+  sendReportEmail,
+  sendLoginNotificationEmail
 };

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const admin = require('firebase-admin');
-const { sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
+const { sendWelcomeEmail, sendPasswordResetEmail, sendLoginNotificationEmail } = require('../services/emailService');
 
 // Helper to extract token from Authorization header
 const extractToken = (req) => {
@@ -96,6 +96,13 @@ router.post('/signup', async (req, res) => {
       });
     } else {
       console.log(`User already exists in MongoDB: ${user.email || uid}`);
+      
+      // Send login alert email with timestamp
+      const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }) + ' (IST)';
+      sendLoginNotificationEmail(user.email, user.name, timestamp).catch(err => {
+        console.error(`Login email notification failed for ${user.email}:`, err.message);
+      });
+
       // Optionally update name/phone if they changed
       let updated = false;
       if (name && user.name !== name) {
