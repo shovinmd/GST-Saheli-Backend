@@ -113,7 +113,8 @@ router.post('/signup', async (req, res) => {
         firebaseUid: uid,
         email: email || `user_${uid}@gstsaheli.com`,
         name: name || req.body.name || 'GST Saheli Member',
-        phoneNumber: phone_number || req.body.phoneNumber || ''
+        phoneNumber: phone_number || req.body.phoneNumber || '',
+        photoUrl: req.body.photoUrl || (decodedToken && decodedToken.picture) || ''
       });
       await user.save();
       isNewUser = true;
@@ -132,7 +133,7 @@ router.post('/signup', async (req, res) => {
         console.error(`Login email notification failed for ${user.email}:`, err.message);
       });
 
-      // Optionally update name/phone if they changed
+      // Optionally update name/phone/photoUrl if they changed
       let updated = false;
       if (name && user.name !== name) {
         user.name = name;
@@ -140,6 +141,10 @@ router.post('/signup', async (req, res) => {
       }
       if (phone_number && user.phoneNumber !== phone_number) {
         user.phoneNumber = phone_number;
+        updated = true;
+      }
+      if (req.body.photoUrl && user.photoUrl !== req.body.photoUrl) {
+        user.photoUrl = req.body.photoUrl;
         updated = true;
       }
       if (updated) {
@@ -157,6 +162,7 @@ router.post('/signup', async (req, res) => {
         email: user.email,
         name: user.name,
         phoneNumber: user.phoneNumber,
+        photoUrl: user.photoUrl || '',
         points: user.points,
         streak: user.streak,
         badges: user.badges,
