@@ -81,4 +81,59 @@ router.post('/profile', auth, async (req, res) => {
   }
 });
 
+// POST /api/user/practice - Submit quiz score and award points
+router.post('/practice', auth, async (req, res) => {
+  try {
+    const { quizTitle, score, totalQuestions, pointsEarned } = req.body;
+    const firebaseUid = req.user.uid;
+
+    if (!quizTitle || score === undefined || pointsEarned === undefined) {
+      return res.status(400).json({ success: false, message: 'Missing practice results payload.' });
+    }
+
+    const Practice = require('../models/Practice');
+    const User = require('../models/User');
+
+    // 1. Create and save new Practice document
+    const practice = new Practice({
+      firebaseUid,
+      quizTitle,
+      score,
+      totalQuestions: totalQuestions || 5,
+      pointsEarned
+    });
+    await practice.save();
+    console.log(`Saved practice session for ${firebaseUid}: ${quizTitle}`);
+
+    // 2. Increment user points in MongoDB
+    let user = await User.findOne({ firebaseUid });
+    if (user) {
+      user.points = (user.points || 0) + pointsEarned;
+      await user.save();
+      console.log(`Awarded ${pointsEarned} points to user ${user.email}. New total: ${user.points}`);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Practice score recorded successfully.',
+      points: user ? user.points : 0,
+      user: user ? {
+        id: user._id,
+        firebaseUid: user.firebaseUid,
+        email: user.email,
+        name: user.name,
+        phoneNumber: user.phoneNumber,
+        photoUrl: user.photoUrl || '',
+        points: user.points,
+        streak: user.streak,
+        badges: user.badges,
+        createdAt: user.createdAt
+      } : null
+    });
+  } catch (error) {
+    console.error('Error in /practice route:', error);
+    return res.status(500).json({ success: false, message: 'Server error during practice score submission.' });
+  }
+});
+
 module.exports = router;
