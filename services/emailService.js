@@ -1,47 +1,39 @@
-const https = require('https');
-
 /**
  * Utility function to send an email via Brevo transactional SMTP endpoint
+ * Uses native fetch with automatic retry to handle transient TLS/network socket disconnects.
  */
-const sendBrevoEmail = (payload) => {
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify(payload);
-    const options = {
-      hostname: 'api.brevo.com',
-      port: 443,
-      path: '/v3/smtp/email',
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'api-key': process.env.BREVO_API_KEY,
-        'content-type': 'application/json',
-        'content-length': data.length
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            resolve(JSON.parse(body));
-          } catch (e) {
-            resolve({ message: 'Success (no json response)' });
-          }
-        } else {
-          reject(new Error(`Brevo API returned status ${res.statusCode}: ${body}`));
-        }
+const sendBrevoEmail = async (payload, retries = 2) => {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload)
       });
-    });
 
-    req.on('error', (err) => {
-      reject(err);
-    });
-
-    req.write(data);
-    req.end();
-  });
+      const body = await response.text();
+      if (response.ok) {
+        try {
+          return JSON.parse(body);
+        } catch (e) {
+          return { message: 'Success' };
+        }
+      } else {
+        throw new Error(`Brevo API returned status ${response.status}: ${body}`);
+      }
+    } catch (err) {
+      if (i === retries) {
+        throw err;
+      }
+      console.warn(`Transient email dispatch failure (attempt ${i + 1}/${retries + 1}): ${err.message}. Retrying...`);
+      // Short delay before retry
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
 };
 
 /**
