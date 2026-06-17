@@ -88,3 +88,22 @@ SENDER_NAME="GST Saheli Team"
     npm start
     ```
     *(For development mode with auto-reload: `npm run dev`)*
+
+---
+
+## ☁️ Vercel Deployment
+
+This backend is pre-configured for serverless deployment on Vercel via the `vercel.json` config file.
+
+### Steps to Deploy:
+1. Log in to [vercel.com](https://vercel.com) using GitHub.
+2. Select **Add New...** > **Project** and import your `GST-Saheli-Backend` repository.
+3. Keep default settings (Framework Preset: **Other**, Root Directory: `./`).
+4. Expand **Environment Variables** and add:
+   - `MONGODB_URI` (MongoDB connection string)
+   - `BREVO_API_KEY` (API key from Brevo)
+   - `SENDER_EMAIL` (Sender email)
+   - `SENDER_NAME` (Sender name)
+   - `NODE_ENV` = `production`
+5. Click **Deploy**. Vercel will automatically host the Express server.
+
