@@ -103,6 +103,22 @@ SMTP_PASS=your-smtp-password-or-app-password
           "pointsEarned": 80
         }
         ```
+*   **`POST /api/user/certificate`**
+    - **Description**: Securely saves or updates the user's certificate and achievement records in the `certificates` database collection.
+    - **Header**: `Authorization: Bearer <firebase_token>` (optional but recommended)
+    - **Body Parameters**:
+        ```json
+        {
+          "userName": "Saheli Member",
+          "points": 500,
+          "badgesCount": 4,
+          "invoicesCreated": 12,
+          "quizzesCompleted": 5
+        }
+        ```
+*   **`GET /api/user/certificate`**
+    - **Description**: Retrieves the authenticated user's certificate record from MongoDB.
+    - **Header**: `Authorization: Bearer <firebase_token>` (required)
 
 ---
 
