@@ -2,7 +2,14 @@ const nodemailer = require('nodemailer');
 
 // Initialize SMTP transporter if configured in environment variables
 let transporter = null;
-if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+const smtpConfigured =
+  Boolean(process.env.SMTP_HOST) &&
+  Boolean(process.env.SMTP_USER) &&
+  Boolean(process.env.SMTP_PASS);
+const brevoApiConfigured = Boolean(process.env.BREVO_API_KEY);
+const allowBrevoApiFallback = process.env.ALLOW_BREVO_API_FALLBACK === 'true';
+
+if (smtpConfigured) {
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587'),
@@ -14,7 +21,7 @@ if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
   });
   console.log(`SMTP email dispatcher initialized successfully for host: ${process.env.SMTP_HOST}`);
 } else {
-  console.log('Using default Brevo HTTP REST API for email dispatch.');
+  console.log('SMTP is not configured. Email dispatch will use the Brevo HTTP REST API if available.');
 }
 
 /**
@@ -36,10 +43,22 @@ const sendBrevoEmail = async (payload, retries = 2) => {
         html: payload.htmlContent
       });
 
-      return { messageId: info.messageId || 'smtp-success' };
+      return { messageId: info.messageId || 'smtp-success', provider: 'smtp' };
     } catch (err) {
-      console.error('SMTP direct dispatch failed, attempting REST API fallback if available:', err.message);
+      console.error('SMTP direct dispatch failed:', err.message);
+      if (!allowBrevoApiFallback) {
+        throw new Error(
+          `SMTP dispatch failed and REST fallback is disabled to avoid Brevo IP verification issues: ${err.message}`,
+        );
+      }
     }
+  }
+
+  if (!brevoApiConfigured) {
+    if (smtpConfigured) {
+      throw new Error('SMTP dispatch failed and no Brevo API key is configured for fallback.');
+    }
+    throw new Error('No email provider is configured. Set SMTP_* variables or BREVO_API_KEY.');
   }
 
   // Fallback to Brevo REST API
@@ -58,9 +77,9 @@ const sendBrevoEmail = async (payload, retries = 2) => {
       const body = await response.text();
       if (response.ok) {
         try {
-          return JSON.parse(body);
+          return { ...JSON.parse(body), provider: 'brevo-api' };
         } catch (e) {
-          return { message: 'Success' };
+          return { message: 'Success', provider: 'brevo-api' };
         }
       } else {
         throw new Error(`Brevo API returned status ${response.status}: ${body}`);
@@ -123,7 +142,10 @@ const sendWelcomeEmail = async (email, name) => {
 
   try {
     const res = await sendBrevoEmail(payload);
-    console.log(`Welcome email successfully sent to ${email}. Message ID:`, res.messageId);
+    console.log(
+      `Welcome email successfully sent to ${email} via ${res.provider}. Message ID:`,
+      res.messageId,
+    );
     return { success: true, response: res };
   } catch (error) {
     console.error(`Error sending welcome email to ${email}:`, error.message);
@@ -173,7 +195,10 @@ const sendPasswordResetEmail = async (email, resetLink) => {
 
   try {
     const res = await sendBrevoEmail(payload);
-    console.log(`Password reset email successfully sent to ${email}. Message ID:`, res.messageId);
+    console.log(
+      `Password reset email successfully sent to ${email} via ${res.provider}. Message ID:`,
+      res.messageId,
+    );
     return { success: true, response: res };
   } catch (error) {
     console.error(`Error sending password reset email to ${email}:`, error.message);
@@ -242,7 +267,10 @@ const sendReportEmail = async (email, name, progressDetails) => {
 
   try {
     const res = await sendBrevoEmail(payload);
-    console.log(`Progress report successfully sent to ${email}. Message ID:`, res.messageId);
+    console.log(
+      `Progress report successfully sent to ${email} via ${res.provider}. Message ID:`,
+      res.messageId,
+    );
     return { success: true, response: res };
   } catch (error) {
     console.error(`Error sending progress report email to ${email}:`, error.message);
@@ -293,7 +321,10 @@ const sendLoginNotificationEmail = async (email, name, timestamp) => {
 
   try {
     const res = await sendBrevoEmail(payload);
-    console.log(`Login notification email successfully sent to ${email}. Message ID:`, res.messageId);
+    console.log(
+      `Login notification email successfully sent to ${email} via ${res.provider}. Message ID:`,
+      res.messageId,
+    );
     return { success: true, response: res };
   } catch (error) {
     console.error(`Error sending login notification email to ${email}:`, error.message);

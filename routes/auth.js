@@ -120,18 +120,12 @@ router.post('/signup', async (req, res) => {
       isNewUser = true;
       console.log(`Created new MongoDB record for user: ${user.email || uid}`);
 
-      // Async send welcome email via Brevo
-      sendWelcomeEmail(user.email, user.name).catch(err => {
-        console.error(`Welcome email async failure for ${user.email}:`, err.message);
-      });
+      const welcomeEmailResult = await sendWelcomeEmail(user.email, user.name);
+      if (!welcomeEmailResult.success) {
+        console.error(`Welcome email delivery failed for ${user.email}: ${welcomeEmailResult.error}`);
+      }
     } else {
       console.log(`User already exists in MongoDB: ${user.email || uid}`);
-      
-      // Send login alert email with timestamp
-      const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }) + ' (IST)';
-      sendLoginNotificationEmail(user.email, user.name, timestamp).catch(err => {
-        console.error(`Login email notification failed for ${user.email}:`, err.message);
-      });
 
       // Optionally update name/phone/photoUrl if they changed
       let updated = false;
@@ -149,6 +143,13 @@ router.post('/signup', async (req, res) => {
       }
       if (updated) {
         await user.save();
+      }
+
+      // Await email dispatch so serverless runtimes do not end the request first.
+      const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }) + ' (IST)';
+      const loginEmailResult = await sendLoginNotificationEmail(user.email, user.name, timestamp);
+      if (!loginEmailResult.success) {
+        console.error(`Login email notification failed for ${user.email}: ${loginEmailResult.error}`);
       }
     }
 
