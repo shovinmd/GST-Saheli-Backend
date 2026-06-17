@@ -31,22 +31,40 @@ if (serviceAccountPath) {
   console.log('Running in Development/Fallback Auth mode (Tokens will be parsed without verification).');
 }
 
-// Connect to MongoDB Atlas
+// Connect to MongoDB Atlas (handled helper for serverless environment)
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
   console.error('CRITICAL: MONGODB_URI is not defined in the environment variables.');
   process.exit(1);
 }
 
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('Successfully connected to MongoDB Atlas (GST database).'))
-  .catch((err) => {
-    console.error('MongoDB Atlas connection error:', err);
-  });
+const connectDB = async () => {
+  if (mongoose.connection.readyState === 1) {
+    return;
+  }
+  await mongoose.connect(MONGODB_URI);
+};
+
+// Start initial connection
+connectDB().catch((err) => {
+  console.error('MongoDB Atlas initial connection error:', err);
+});
 
 // Routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+
+// Middleware to ensure DB is connected for API requests
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Database connection failed during request routing:', err.message);
+    next(); // Proceed to allow error handlers or status response
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 
