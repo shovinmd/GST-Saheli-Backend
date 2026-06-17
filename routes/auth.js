@@ -70,26 +70,15 @@ router.post('/signup', async (req, res) => {
 
     const { uid, email, name, phone_number } = decodedToken;
 
-    // Try to find the user in MongoDB Atlas by uid, email, or phone number
+    // Try to find the user in MongoDB Atlas by uid or email
     let query = { firebaseUid: uid };
     if (email) {
       query = { $or: [{ firebaseUid: uid }, { email: email.toLowerCase() }] };
-    } else if (phone_number) {
-      query = { $or: [{ firebaseUid: uid }, { phoneNumber: phone_number }] };
     }
-    
     let user = await User.findOne(query);
     let isNewUser = false;
- 
-    if (!user) {
-      // If logging in via phone but no account exists, return error
-      if (phone_number && (!email || email.includes('gstsaheli.com'))) {
-        return res.status(404).json({
-          success: false,
-          message: 'No account associated with this mobile number. Please sign up using Email or Google first.'
-        });
-      }
 
+    if (!user) {
       // User doesn't exist, create a new record in MongoDB
       user = new User({
         firebaseUid: uid,

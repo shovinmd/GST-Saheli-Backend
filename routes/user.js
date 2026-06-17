@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/auth');
 const { sendReportEmail } = require('../services/emailService');
 
 // POST /api/user/report - Send email report to user
-router.post('/report', async (req, res) => {
+router.post('/report', auth, async (req, res) => {
   try {
     const { email, name, points, streak, badgesCount } = req.body;
 
