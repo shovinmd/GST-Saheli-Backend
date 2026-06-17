@@ -136,4 +136,65 @@ router.post('/practice', auth, async (req, res) => {
   }
 });
 
+// POST /api/user/certificate - Save/Update user's unlocked certificate details
+router.post('/certificate', auth, async (req, res) => {
+  try {
+    const { userName, points, badgesCount, invoicesCreated, quizzesCompleted } = req.body;
+    const firebaseUid = req.user.uid;
+    const Certificate = require('../models/Certificate');
+
+    let certificate = await Certificate.findOne({ firebaseUid });
+    if (certificate) {
+      certificate.userName = userName;
+      certificate.points = points;
+      certificate.badgesCount = badgesCount;
+      certificate.invoicesCreated = invoicesCreated;
+      certificate.quizzesCompleted = quizzesCompleted;
+      certificate.dateOfCompletion = new Date();
+      await certificate.save();
+    } else {
+      certificate = new Certificate({
+        firebaseUid,
+        userName,
+        points,
+        badgesCount,
+        invoicesCreated,
+        quizzesCompleted,
+        dateOfCompletion: new Date()
+      });
+      await certificate.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Certificate saved successfully.',
+      certificate
+    });
+  } catch (error) {
+    console.error('Error saving certificate:', error);
+    return res.status(500).json({ success: false, message: 'Server error saving certificate.' });
+  }
+});
+
+// GET /api/user/certificate - Retrieve certificate details
+router.get('/certificate', auth, async (req, res) => {
+  try {
+    const firebaseUid = req.user.uid;
+    const Certificate = require('../models/Certificate');
+
+    const certificate = await Certificate.findOne({ firebaseUid });
+    if (!certificate) {
+      return res.status(404).json({ success: false, message: 'No certificate found for this user.' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      certificate
+    });
+  } catch (error) {
+    console.error('Error fetching certificate:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching certificate.' });
+  }
+});
+
 module.exports = router;
