@@ -1,6 +1,6 @@
 # GST Saheli Backend Server ⚙️
 
-The GST Saheli backend is a Node.js Express server that interfaces with MongoDB Atlas for profile state management, coordinates Firebase token authentication, and dispatches rich transactional emails via the Brevo SMTP API.
+The GST Saheli backend is a Node.js Express server that interfaces with MongoDB Atlas for profile state management, coordinates Firebase token authentication, and dispatches rich transactional emails (supporting both SMTP Relay and Brevo HTTP REST API).
 
 ---
 
@@ -8,7 +8,7 @@ The GST Saheli backend is a Node.js Express server that interfaces with MongoDB 
 *   **Runtime**: Node.js (v18+)
 *   **Framework**: Express.js
 *   **Database**: MongoDB Atlas via Mongoose ORM
-*   **Email Deliverability**: Brevo Transactional API (SMTP)
+*   **Email Deliverability**: SMTP Relay (highly recommended, e.g. Gmail / Brevo SMTP) or Brevo Transactional REST API
 *   **Identity Provider**: Firebase Admin SDK (with fallback mock support)
 
 ---
@@ -25,19 +25,31 @@ MONGODB_URI=mongodb+srv://MyPro:<password>@cluster0.ey3rp.mongodb.net/GST?retryW
 # Leave blank to run in mock validation mode for developer test purposes.
 FIREBASE_SERVICE_ACCOUNT_PATH=
 
-# Brevo configuration parameters
+# DEFAULT EMAIL CONFIGURATION (Brevo REST API)
 BREVO_API_KEY=your_brevo_api_key_here
 SENDER_EMAIL=no-reply@gstsaheli.com
 SENDER_NAME="GST Saheli Team"
+
+# SMTP RELAY CONFIGURATION (RECOMMENDED FOR CLOUD DEPLOYMENTS LIKE VERCEL)
+# Use SMTP Relay to completely bypass Brevo's "unrecognized IP address" restrictions.
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=shovinmicheldavid1285@gmail.com
+SMTP_PASS=your-smtp-password-or-app-password
 ```
+
+> [!TIP]
+> **Why use SMTP?**
+> When deploying backend servers on serverless cloud platforms like Vercel, server IP addresses change dynamically. Brevo blocks REST API calls from unknown IPs with a `401 Unauthorized` error. Using SMTP Relay (`smtp-relay.brevo.com` or Gmail SMTP) bypasses source IP restrictions completely.
 
 ---
 
 ## 🔌 API Endpoints
 
-### 1. Authentication
+### 1. Authentication & Profile
 *   **`POST /api/auth/signup`**
-    - **Description**: Verifies the user ID token and creates or returns the user profile in MongoDB Atlas. If it is a new user, triggers the Brevo welcome email.
+    - **Description**: Verifies the user ID token and creates or returns the user profile in MongoDB Atlas. If it is a new user, triggers a welcome email.
     - **Header**: `Authorization: Bearer <firebase_token>` (optional)
     - **Body Parameters**:
         ```json
@@ -56,6 +68,15 @@ SENDER_NAME="GST Saheli Team"
           "email": "user@example.com"
         }
         ```
+*   **`POST /api/user/profile`**
+    - **Description**: Securely updates the user's profile image `photoUrl` in MongoDB.
+    - **Header**: `Authorization: Bearer <firebase_token>` (required)
+    - **Body Parameters**:
+        ```json
+        {
+          "photoUrl": "https://example.com/avatar.png"
+        }
+        ```
 
 ### 2. User Statistics & Reports
 *   **`POST /api/user/report`**
@@ -68,6 +89,18 @@ SENDER_NAME="GST Saheli Team"
           "points": 250,
           "streak": 5,
           "badgesCount": 3
+        }
+        ```
+*   **`POST /api/user/practice`**
+    - **Description**: Records quiz results in the database under the secure `practices` collection (linked to the user's UID) and awards XP coins.
+    - **Header**: `Authorization: Bearer <firebase_token>` (required)
+    - **Body Parameters**:
+        ```json
+        {
+          "quizTitle": "GST Rate Master Quiz",
+          "score": 80,
+          "totalQuestions": 5,
+          "pointsEarned": 80
         }
         ```
 
@@ -97,13 +130,13 @@ This backend is pre-configured for serverless deployment on Vercel via the `verc
 
 ### Steps to Deploy:
 1. Log in to [vercel.com](https://vercel.com) using GitHub.
-2. Select **Add New...** > **Project** and import your `GST-Saheli-Backend` repository.
-3. Keep default settings (Framework Preset: **Other**, Root Directory: `./`).
-4. Expand **Environment Variables** and add:
-   - `MONGODB_URI` (MongoDB connection string)
-   - `BREVO_API_KEY` (API key from Brevo)
-   - `SENDER_EMAIL` (Sender email)
-   - `SENDER_NAME` (Sender name)
-   - `NODE_ENV` = `production`
-5. Click **Deploy**. Vercel will automatically host the Express server.
-
+2. Import your `GST-Saheli-Backend` repository.
+3. Add environment variables:
+   - `MONGODB_URI`
+   - `SMTP_HOST`
+   - `SMTP_PORT`
+   - `SMTP_USER`
+   - `SMTP_PASS`
+   - `SENDER_EMAIL`
+   - `SENDER_NAME`
+4. Click **Deploy**.

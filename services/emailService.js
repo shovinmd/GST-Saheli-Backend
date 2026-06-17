@@ -1,8 +1,48 @@
+const nodemailer = require('nodemailer');
+
+// Initialize SMTP transporter if configured in environment variables
+let transporter = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+  console.log(`SMTP email dispatcher initialized successfully for host: ${process.env.SMTP_HOST}`);
+} else {
+  console.log('Using default Brevo HTTP REST API for email dispatch.');
+}
+
 /**
- * Utility function to send an email via Brevo transactional SMTP endpoint
- * Uses native fetch with automatic retry to handle transient TLS/network socket disconnects.
+ * Utility function to send an email via SMTP or fallback to Brevo HTTP API.
+ * SMTP protocol is highly recommended to bypass IP restrictions.
  */
 const sendBrevoEmail = async (payload, retries = 2) => {
+  // If SMTP configurations are available, use them directly (bypasses Brevo API IP restrictions)
+  if (transporter) {
+    try {
+      const fromName = payload.sender?.name || process.env.SENDER_NAME || 'GST Saheli';
+      const fromEmail = payload.sender?.email || process.env.SENDER_EMAIL || 'no-reply@gstsaheli.com';
+      const toEmails = payload.to.map(t => `"${t.name || ''}" <${t.email}>`).join(', ');
+
+      const info = await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: toEmails,
+        subject: payload.subject,
+        html: payload.htmlContent
+      });
+
+      return { messageId: info.messageId || 'smtp-success' };
+    } catch (err) {
+      console.error('SMTP direct dispatch failed, attempting REST API fallback if available:', err.message);
+    }
+  }
+
+  // Fallback to Brevo REST API
   for (let i = 0; i <= retries; i++) {
     try {
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
